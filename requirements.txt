@@ -1,0 +1,9 @@
+tensorflow ~= 2.4.1
+keras ~= 2.4.3
+requests ~= 2.25.1
+lxml ~= 4.6.2
+BeautifulSoup4 ~= 4.9.3
+ConceptNet ~= 5.7.0
+pandas ~= 1.2.3
+scikit-learn ~= 0.24.1
+tables ~= 3.6.1
