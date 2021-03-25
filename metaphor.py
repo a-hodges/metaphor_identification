@@ -51,7 +51,8 @@ def load_vuamc(url):
         Takes a bs4 sentence tag and returns the lematized sentence and whether it was metaphorical
         """
         lemmas = " ".join(w["lemma"].replace(" ", "_") for w in sentence.find_all("w"))
-        metaphorical = sentence.find("seg") is not None
+        # only look for words actually related to metaphor
+        metaphorical = sentence.find("seg", function="mrw") is not None
         return lemmas, metaphorical
 
     if url.startswith("http"):
@@ -61,7 +62,8 @@ def load_vuamc(url):
             document = f.read()
     xml = BeautifulSoup(document, features="lxml")
     sentences = xml.find_all("s")
-    return list(map(parse_sentence, sentences))
+    sentences = map(parse_sentence, sentences)
+    return list(sentences)
 
 
 def split_labels(lst):
