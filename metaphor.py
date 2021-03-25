@@ -58,7 +58,7 @@ def load_vuamc(url):
     if url.startswith("http"):
         document = requests.get(url).text
     else:
-        with open(url, "r") as f:
+        with open(url, "r", encoding="utf8") as f:
             document = f.read()
     xml = BeautifulSoup(document, features="lxml")
     sentences = xml.find_all("s")
