@@ -27,7 +27,8 @@ parser.add_argument("-e", "--epochs", dest="max_epochs", type=int, default=30,
 parser.add_argument("-r", "--regularization", dest="l2", type=float, default=0.001,
                     help="l2 regularization value to use")
 parser.add_argument("--no-droput", dest="dropout", action="store_false", help="Turn off dropout layers")
-parser.add_argument("--no-stop", dest="early_stopping", action="store_false", help="Turn off early stopping")
+parser.add_argument("-p", "--patience", dest="patience", type=int, default=3,
+                    help="EarlyStopping patience parameter, -1 to disable early stopping. Default=3")
 parser.add_argument("-o", "--output", dest="outdir", default="./output", help="Output directory")
 parser.add_argument("-v", "--vectors", dest="vector_filename", default=None,
                     help="Location of vector file. Searches conceptnet5 data locations by default")
@@ -123,8 +124,8 @@ model.summary()
 
 callbacks = []
 # early stopping stops iteration when the model starts overfitting too much
-if args.early_stopping:
-    callbacks.append(EarlyStopping(patience=2, restore_best_weights=True))
+if args.patience >= 0:
+    callbacks.append(EarlyStopping(patience=args.patience, restore_best_weights=True))
 
 model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 history = model.fit(train_data, train_labels, steps_per_epoch=30, epochs=args.max_epochs,
