@@ -130,10 +130,10 @@ else:
     model = keras.models.load_model(modelpath)
 
 # export accuracy plot
-plt.plot(history.history["accuracy"])
-plt.plot(history.history["val_accuracy"])
+for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
+    plt.plot(range(1, len(vals)+1), vals)
 plt.title("model accuracy")
-plt.xlim(0, args.max_epochs)
+plt.xlim(1, args.max_epochs)
 plt.xlabel("epoch")
 plt.ylim(0.5, 1.0)
 plt.ylabel("accuracy")
@@ -142,14 +142,14 @@ plt.savefig(outdir / "model_accuracy.png")
 plt.close()
 
 # export loss plot
-plt.plot(history.history["loss"])
-plt.plot(history.history["val_loss"])
+for vals in [history.history["loss"], history.history["val_loss"]]:
+    plt.plot(range(1, len(vals)+1), vals)
 plt.title("model loss")
-plt.xlim(0, args.max_epochs)
+plt.xlim(1, args.max_epochs)
 plt.xlabel("epoch")
 plt.ylim(0.0, 1.0)
 plt.ylabel("loss")
-plt.legend(['training', 'validation'], loc='upper left')
+plt.legend(['training', 'validation'], loc='upper right')
 plt.savefig(outdir / "model_loss.png")
 plt.close()
 
