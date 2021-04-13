@@ -25,8 +25,6 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("-e", "--epochs", dest="max_epochs", type=int, default=30,
                     help="Maximum number of epochs to learn from")
-parser.add_argument("-s", "--save", dest="save", action="store_true",
-                    help="Will save or load a saved model if this argument is included")
 parser.add_argument("-r", "--regularization", dest="l2", type=float, default=0.001,
                     help="l2 regularization value to use")
 parser.add_argument("--no-droput", dest="dropout", action="store_false", help="Turn off dropout layers")
@@ -97,37 +95,37 @@ train_labels = labels[:t_split]
 val_labels = labels[t_split:v_split]
 test_labels = labels[v_split:]
 
+
+def MetaphorModel():
+    # regularizers and dropout layers help prevent overfitting
+    input = layers.Input(shape=(300,))
+    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(input)
+    if args.dropout:
+        x = layers.Dropout(0.5)(x)
+    x = layers.Dense(60, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(x)
+    if args.dropout:
+        x = layers.Dropout(0.5)(x)
+    x = layers.Dense(1, activation="sigmoid")(x)  # prediciton layer
+
+    model = keras.Model(inputs=input, outputs=x)
+    return model
+
+
+model = MetaphorModel()
+model.summary()
+
+callbacks = []
+# early stopping stops iteration when the model starts overfitting too much
+if args.early_stopping:
+    callbacks.append(EarlyStopping(patience=2, restore_best_weights=True))
+
+model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+history = model.fit(train_data, train_labels, steps_per_epoch=30, epochs=args.max_epochs,
+                    validation_data=(val_data, val_labels), callbacks=callbacks)
+
 # setup output directory
 outdir = Path(args.outdir)
 outdir.mkdir(parents=True, exist_ok=True)
-
-modelpath = outdir / "metaphor.tf"
-if not args.save and not modelpath.exists():
-    # regularizers and dropout layers help prevent overfitting
-    model = keras.Sequential()
-    model.add(layers.Input(shape=train_data[0].shape))
-    model.add(layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2)))
-    if args.dropout:
-        model.add(layers.Dropout(0.5))
-    model.add(layers.Dense(60, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2)))
-    if args.dropout:
-        model.add(layers.Dropout(0.5))
-    model.add(layers.Dense(1, activation="sigmoid"))  # prediciton layer
-
-    model.summary()
-
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-
-    callbacks = []
-    # early stopping stops iteration when the model starts overfitting too much
-    if args.early_stopping:
-        callbacks.append(EarlyStopping(patience=2, restore_best_weights=True))
-    history = model.fit(train_data, train_labels, steps_per_epoch=30, epochs=args.max_epochs,
-                        validation_data=(val_data, val_labels), callbacks=callbacks)
-    if args.save:
-        model.save(modelpath, save_format="tf")
-else:
-    model = keras.models.load_model(modelpath)
 
 # export accuracy plot
 for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
