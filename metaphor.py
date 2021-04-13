@@ -47,7 +47,7 @@ def load_vuamc(url):
         """
         Takes a bs4 sentence tag and returns the lematized sentence and whether it was metaphorical
         """
-        lemmas = " ".join(w["lemma"].replace(" ", "_") for w in sentence.find_all("w"))
+        lemmas = [w["lemma"].replace(" ", "_") for w in sentence.find_all("w")]
         # only look for words actually related to metaphor
         metaphorical = sentence.find("seg", function="mrw") is not None
         return lemmas, metaphorical
@@ -72,7 +72,13 @@ def split_labels(lst):
 
 
 def vectorize(sentence):
+    sentence = " ".join(sentence)
     return vectors.text_to_vector("en", sentence)
+
+
+def preprocessing(corpus):
+    lst = [(vectorize(sentence), float(label)) for sentence, label in corpus]
+    return np.array(lst)
 
 
 # load numberbatch vectors
@@ -85,7 +91,7 @@ print("Loading corpus...")
 corpus = load_vuamc(args.corpus_filename or "./data/VUAMC.xml")
 print("Preprocessing...")
 # vectorize sentences and convert boolean labels to floats
-labelled_data = np.array([(vectorize(sentence), float(label)) for sentence, label in corpus])
+labelled_data = preprocessing(corpus)
 
 random.Random(10).shuffle(corpus)  # shuffle corpus for splitting
 t_split = len(corpus) * 6 // 10
