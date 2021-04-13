@@ -72,13 +72,13 @@ def split_labels(lst):
     return tuple(map(np.array, zip(*lst)))
 
 
-def vectorize(sentence):
+def vectorize(sentence, vectors):
     sentence = " ".join(sentence)
     return vectors.text_to_vector("en", sentence)
 
 
-def preprocessing(corpus):
-    lst = [(vectorize(sentence), float(label)) for sentence, label in corpus]
+def preprocessing(corpus, vectors):
+    lst = [(vectorize(sentence, vectors), float(label)) for sentence, label in corpus]
     return np.array(lst)
 
 
@@ -92,7 +92,7 @@ print("Loading corpus...")
 corpus = load_vuamc(args.corpus_filename)
 print("Preprocessing...")
 # vectorize sentences and convert boolean labels to floats
-labelled_data = preprocessing(corpus)
+labelled_data = preprocessing(corpus, vectors)
 
 random.Random(10).shuffle(corpus)  # shuffle corpus for splitting
 t_split = len(corpus) * 6 // 10
