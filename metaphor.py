@@ -8,7 +8,6 @@ import math
 import random
 import argparse
 import textwrap
-from functools import partial
 from pathlib import Path
 
 import requests
@@ -69,7 +68,11 @@ def split_labels(lst):
     Takes a list of tuples of the form (input, label)
     Returns 2 lists, one of inputs and one of labels
     """
-    return tuple(zip(*lst))
+    return tuple(map(np.array, zip(*lst)))
+
+
+def vectorize(sentence):
+    return vectors.text_to_vector("en", sentence)
 
 
 # load numberbatch vectors
@@ -80,20 +83,18 @@ vectors.load()
 # Load metaphor corpus
 print("Loading corpus...")
 corpus = load_vuamc(args.corpus_filename or "./data/VUAMC.xml")
+print("Preprocessing...")
+# vectorize sentences and convert boolean labels to floats
+labelled_data = np.array([(vectorize(sentence), float(label)) for sentence, label in corpus])
+
 random.Random(10).shuffle(corpus)  # shuffle corpus for splitting
 t_split = len(corpus) * 6 // 10
 v_split = len(corpus) * 8 // 10
-data, labels_bool = split_labels(corpus)
-data = np.array(list(map(partial(vectors.text_to_vector, "en"), data)))  # vectorize sentences
-labels = np.array(list(map(float, labels_bool)))  # convert boolean labels to float values
 
-train_data = data[:t_split]
-val_data = data[t_split:v_split]
-test_data = data[v_split:]
-
-train_labels = labels[:t_split]
-val_labels = labels[t_split:v_split]
-test_labels = labels[v_split:]
+train_data, train_labels = split_labels(labelled_data[:t_split])
+val_data, val_labels = split_labels(labelled_data[t_split:v_split])
+test_data, test_labels = split_labels(labelled_data[v_split:])
+test_labels_bool = test_labels.astype(dtype=bool)
 
 
 def MetaphorModel():
@@ -152,7 +153,6 @@ plt.savefig(outdir / "model_loss.png")
 plt.close()
 
 # get predictions and metrics
-test_labels_bool = test_labels.astype(dtype=bool)
 predictions = model.predict(test_data)
 predictions = predictions.reshape((len(predictions),))
 predictions_bool = [pred >= 0.5 for pred in predictions]
