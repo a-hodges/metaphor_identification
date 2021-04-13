@@ -23,17 +23,17 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("-e", "--epochs", dest="max_epochs", type=int, default=30,
-                    help="Maximum number of epochs to learn from")
+                    help="Maximum number of epochs to learn from. Default=30")
 parser.add_argument("-r", "--regularization", dest="l2", type=float, default=0.001,
-                    help="l2 regularization value to use")
+                    help="l2 regularization value to use. Default=0.001")
 parser.add_argument("--no-droput", dest="dropout", action="store_false", help="Turn off dropout layers")
 parser.add_argument("-p", "--patience", dest="patience", type=int, default=3,
                     help="EarlyStopping patience parameter, -1 to disable early stopping. Default=3")
 parser.add_argument("-o", "--output", dest="outdir", default="./output", help="Output directory")
 parser.add_argument("-v", "--vectors", dest="vector_filename", default=None,
-                    help="Location of vector file. Searches conceptnet5 data locations by default")
-parser.add_argument("-c", "--corpus", dest="corpus_filename", default=None,
-                    help="Location of the corpus to load. Defaults to ./data/VUAMC.xml")
+                    help="Location of vector file. Default=conceptnet5 data locations")
+parser.add_argument("-c", "--corpus", dest="corpus_filename", default="./data/VUAMC.xml",
+                    help='Location of the corpus to load. Default="./data/VUAMC.xml"')
 args = parser.parse_args()
 
 for name, value in vars(args).items():
@@ -89,7 +89,7 @@ vectors.load()
 
 # Load metaphor corpus
 print("Loading corpus...")
-corpus = load_vuamc(args.corpus_filename or "./data/VUAMC.xml")
+corpus = load_vuamc(args.corpus_filename)
 print("Preprocessing...")
 # vectorize sentences and convert boolean labels to floats
 labelled_data = preprocessing(corpus)
