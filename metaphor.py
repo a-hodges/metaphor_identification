@@ -113,6 +113,9 @@ def MetaphorModel():
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(input)
     if args.dropout:
         x = layers.Dropout(0.5)(x)
+    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(x)
+    if args.dropout:
+        x = layers.Dropout(0.5)(x)
     x = layers.Dense(60, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(x)
     if args.dropout:
         x = layers.Dropout(0.5)(x)
