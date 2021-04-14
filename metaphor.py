@@ -41,7 +41,14 @@ parser.add_argument("-l", "--language", dest="lang", default="en",
 # Preprocessing functions
 
 
-def load_numberbatch(filename):
+def load_numberbatch(filename=None):
+    """
+    Loads the ConceptNet5 vectors object
+
+    filename: the path to the conceptnet numberbatch vectors file. Uses the ConceptNet5 defaults if None
+
+    returns the ConceptNet5 vectors object
+    """
     print("Loading vectors...")
     vectors = query.VectorSpaceWrapper(vector_filename=filename)
     vectors.load()
@@ -50,7 +57,11 @@ def load_numberbatch(filename):
 
 def load_vuamc(url):
     """
-    Loads the vuamc corpus and returns a list of the form (lematized sentence, metaphorical?)
+    Loads the vuamc corpus
+
+    url: a url or filepath to the corpus to load
+
+    returns: a list of tuples (lematized sentence, metaphorical?)
     """
     def parse_sentence(sentence):
         """
@@ -86,11 +97,29 @@ def split_labels(lst):
 
 
 def vectorize(vectors, lang, sentence):
+    """
+    Creates a sentence vector from a list of words
+
+    vectors: the ConceptNet5 vectors object
+    lang: the language code for the corpus
+    sentence: a list of strings
+
+    returns: a vector as a list of floats
+    """
     sentence = " ".join(sentence)
     return vectors.text_to_vector(lang, sentence)
 
 
 def preprocess(corpus, vectors, lang="en"):
+    """
+    Helper function for preprocessing()
+
+    corpus: the corpus of unprocessed data
+    vectors: the ConceptNet5 vectors object
+    lang: the language code for the corpus
+
+    returns (data, labels)
+    """
     data, labels = split_labels(corpus)
     data = np.array([vectorize(vectors, lang, s) for s in data])
     labels = np.array(list(map(float, labels)))
@@ -98,6 +127,15 @@ def preprocess(corpus, vectors, lang="en"):
 
 
 def preprocessing(corpus, vectors, lang="en"):
+    """
+    Preprocess the corpus data and split into train, val, and test sets
+
+    corpus: the corpus of unprocessed data
+    vectors: the ConceptNet5 vectors object
+    lang: the language code for the corpus
+
+    returns train, val, test as tuples of (data, labels)
+    """
     print("Preprocessing...")
 
     # shuffle corpus for splitting
@@ -116,6 +154,14 @@ def preprocessing(corpus, vectors, lang="en"):
 
 
 def MetaphorModel(l2s, dropout_rate):
+    """
+    Creates the metaphor detection model in keras
+
+    l2s: the strength of l2 regularization to use
+    dropout_rate: the dropout rate to use in intermediate layers
+
+    returns: the completed model
+    """
     # regularizers and dropout layers help prevent overfitting
     input = layers.Input(shape=(300,))
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(input)
@@ -130,7 +176,20 @@ def MetaphorModel(l2s, dropout_rate):
     return model
 
 
-def run_model(model, patience, max_epochs, train, val=None):
+def train_model(model, patience, max_epochs, train, val=None):
+    """
+    Trains the model against the provided training data
+
+    model: a keras model
+    patience: the number of epochs to wait for early stopping. -1 disables early stopping
+    max_epochs: the maximum number of epochs to run the model for
+    train: a tuple of (train_data, train_labels) to train the model against
+    val: same as train, data to evaluate the model against. No evaluation if not provided
+
+    returns:
+        the trained model
+        the model's training history
+    """
     train_data, train_labels = train
 
     callbacks = []
@@ -148,6 +207,13 @@ def run_model(model, patience, max_epochs, train, val=None):
 
 
 def plot_accuracy(path, history, max_epochs=None):
+    """
+    Saves a plot of the accuracy values of the model
+
+    path: the path to save the plot to
+    history: the history object returned by the model
+    max_epochs: the number of epochs to scale the x axis to
+    """
     for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
         plt.plot(range(1, len(vals)+1), vals)
     plt.title("model accuracy")
@@ -162,6 +228,13 @@ def plot_accuracy(path, history, max_epochs=None):
 
 
 def plot_loss(path, history, max_epochs=None):
+    """
+    Saves a plot of the loss values of the model
+
+    path: the path to save the plot to
+    history: the history object returned by the model
+    max_epochs: the number of epochs to scale the x axis to
+    """
     for vals in [history.history["loss"], history.history["val_loss"]]:
         plt.plot(range(1, len(vals)+1), vals)
     plt.title("model loss")
@@ -175,9 +248,17 @@ def plot_loss(path, history, max_epochs=None):
     print(f"Saved {path}")
 
 
-def save_metrics(path, model, val, test=None):
-    if test is None:
-        test = val
+def save_metrics(path, model, test, val=None):
+    """
+    Save model metrics to a file
+
+    path: the path to save the metrics file to
+    model: the model being evaluated
+    test: a tuple of (test_data, test_labels) to test the model against
+    val: same as test, data to use for the model's own internal evaluate, uses test if val is not provided
+    """
+    if val is None:
+        val = test
 
     test_data, test_labels = test
     test_labels_bool = test_labels.astype(dtype=bool)
@@ -230,7 +311,7 @@ def main():
 
     model = MetaphorModel(l2s=args.l2, dropout_rate=args.dropout)
     model.summary()
-    model, history = run_model(model, patience=args.patience, max_epochs=args.max_epochs, train=train, val=val)
+    model, history = train_model(model, patience=args.patience, max_epochs=args.max_epochs, train=train, val=val)
 
     # setup output directory
     outdir = Path(args.outdir)
@@ -238,7 +319,7 @@ def main():
 
     plot_accuracy(outdir / "model_accuracy.png", history, args.max_epochs)
     plot_loss(outdir / "model_loss.png", history, args.max_epochs)
-    save_metrics(outdir / "metrics_and_predictions.md", model, val, test)
+    save_metrics(outdir / "metrics_and_predictions.md", model, test, val)
 
 
 if __name__ == "__main__":
