@@ -25,8 +25,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("-e", "--epochs", dest="max_epochs", type=int, default=30,
                     help="Maximum number of epochs to learn from. Default=30")
 parser.add_argument("-r", "--regularization", dest="l2", type=float, default=0.001,
-                    help="l2 regularization value to use. Default=0.001")
-parser.add_argument("--no-droput", dest="dropout", action="store_false", help="Turn off dropout layers")
+                    help="l2 regularization value to use. 0.0 for no regularization. Default=0.001")
+parser.add_argument("-d", "--droput", dest="dropout", type=float, default=0.5,
+                    help="Dropout rate on intermediate dropout layers. 0.0 for no dropout. Default=0.5")
 parser.add_argument("-p", "--patience", dest="patience", type=int, default=3,
                     help="EarlyStopping patience parameter, -1 to disable early stopping. Default=3")
 parser.add_argument("-o", "--output", dest="outdir", default="./output", help="Output directory")
@@ -110,25 +111,22 @@ test_data, test_labels = preprocess(corpus[v_split:], vectors, lang=args.lang)
 test_labels_bool = test_labels.astype(dtype=bool)
 
 
-def MetaphorModel():
+def MetaphorModel(l2s, dropout_rate):
     # regularizers and dropout layers help prevent overfitting
     input = layers.Input(shape=(300,))
-    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(input)
-    if args.dropout:
-        x = layers.Dropout(0.5)(x)
-    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(x)
-    if args.dropout:
-        x = layers.Dropout(0.5)(x)
-    x = layers.Dense(60, activation="relu", kernel_regularizer=l2(args.l2), bias_regularizer=l2(args.l2))(x)
-    if args.dropout:
-        x = layers.Dropout(0.5)(x)
+    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(input)
+    x = layers.Dropout(dropout_rate)(x)
+    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
+    x = layers.Dropout(dropout_rate)(x)
+    x = layers.Dense(60, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
+    x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(1, activation="sigmoid")(x)  # prediciton layer
 
     model = keras.Model(inputs=input, outputs=x)
     return model
 
 
-model = MetaphorModel()
+model = MetaphorModel(l2s=args.l2, dropout_rate=args.dropout)
 model.summary()
 
 callbacks = []
