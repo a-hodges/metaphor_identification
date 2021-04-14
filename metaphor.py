@@ -34,6 +34,8 @@ parser.add_argument("-v", "--vectors", dest="vector_filename", default=None,
                     help="Location of vector file. Default=conceptnet5 data locations")
 parser.add_argument("-c", "--corpus", dest="corpus_filename", default="./data/VUAMC.xml",
                     help='Location of the corpus to load. Default="./data/VUAMC.xml"')
+parser.add_argument("-l", "--language", dest="lang", default="en",
+                    help='Language of the corpus. Should be a language code supported by ConceptNet5. Default="en"')
 args = parser.parse_args()
 
 for name, value in vars(args).items():
@@ -72,17 +74,19 @@ def split_labels(lst):
     Takes a list of tuples of the form (input, label)
     Returns 2 lists, one of inputs and one of labels
     """
-    return tuple(map(np.array, zip(*lst)))
+    return tuple(zip(*lst))
 
 
-def vectorize(sentence, vectors):
+def vectorize(vectors, lang, sentence):
     sentence = " ".join(sentence)
-    return vectors.text_to_vector("en", sentence)
+    return vectors.text_to_vector(lang, sentence)
 
 
-def preprocessing(corpus, vectors):
-    lst = [(vectorize(sentence, vectors), float(label)) for sentence, label in corpus]
-    return np.array(lst)
+def preprocess(corpus, vectors, lang="en"):
+    data, labels = split_labels(corpus)
+    data = np.array([vectorize(vectors, lang, s) for s in data])
+    labels = np.array(list(map(float, labels)))
+    return data, labels
 
 
 # load numberbatch vectors
@@ -93,17 +97,16 @@ vectors.load()
 # Load metaphor corpus
 print("Loading corpus...")
 corpus = load_vuamc(args.corpus_filename)
-print("Preprocessing...")
-# vectorize sentences and convert boolean labels to floats
-labelled_data = preprocessing(corpus, vectors)
 
 random.Random(10).shuffle(corpus)  # shuffle corpus for splitting
 t_split = len(corpus) * 6 // 10
 v_split = len(corpus) * 8 // 10
 
-train_data, train_labels = split_labels(labelled_data[:t_split])
-val_data, val_labels = split_labels(labelled_data[t_split:v_split])
-test_data, test_labels = split_labels(labelled_data[v_split:])
+print("Preprocessing...")
+# vectorize sentences and convert boolean labels to floats
+train_data, train_labels = preprocess(corpus[:t_split], vectors, lang=args.lang)
+val_data, val_labels = preprocess(corpus[t_split:v_split], vectors, lang=args.lang)
+test_data, test_labels = preprocess(corpus[v_split:], vectors, lang=args.lang)
 test_labels_bool = test_labels.astype(dtype=bool)
 
 
