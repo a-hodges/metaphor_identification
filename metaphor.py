@@ -142,6 +142,7 @@ outdir = Path(args.outdir)
 outdir.mkdir(parents=True, exist_ok=True)
 
 # export accuracy plot
+accuracy_path = outdir / "model_accuracy.png"
 for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
     plt.plot(range(1, len(vals)+1), vals)
 plt.title("model accuracy")
@@ -150,10 +151,12 @@ plt.xlabel("epoch")
 plt.ylim(0.5, 1.0)
 plt.ylabel("accuracy")
 plt.legend(['training', 'validation'], loc='upper left')
-plt.savefig(outdir / "model_accuracy.png")
+plt.savefig(accuracy_path)
 plt.close()
+print(f"Saved {accuracy_path}")
 
 # export loss plot
+loss_path = outdir / "model_loss.png"
 for vals in [history.history["loss"], history.history["val_loss"]]:
     plt.plot(range(1, len(vals)+1), vals)
 plt.title("model loss")
@@ -162,8 +165,9 @@ plt.xlabel("epoch")
 plt.ylim(0.0, 1.0)
 plt.ylabel("loss")
 plt.legend(['training', 'validation'], loc='upper right')
-plt.savefig(outdir / "model_loss.png")
+plt.savefig(loss_path)
 plt.close()
+print(f"Saved {loss_path}")
 
 # get predictions and metrics
 predictions = model.predict(test_data)
@@ -178,8 +182,9 @@ test_metrics = {
 eval_loss, eval_acc = model.evaluate(val_data, val_labels)
 
 # export test metrics and predictions
+metrics_path = outdir / "metrics_and_predictions.md"
 num_len = math.ceil(math.log10(len(predictions)))
-with open(outdir / "metrics_and_predictions.md", "w", newline="\n") as f:
+with open(metrics_path, "w", newline="\n") as f:
     f.write(textwrap.dedent(f"""
         # Test
         Accuracy  = {test_metrics['accuracy']}
@@ -195,3 +200,4 @@ with open(outdir / "metrics_and_predictions.md", "w", newline="\n") as f:
         """).lstrip())
     for i, (actual, pred) in enumerate(zip(test_labels_bool, predictions)):
         f.write(f"{i:0{num_len}}: {str(actual):<5} vs {str(pred >= 0.5):<5} = {pred}\n")
+print(f"Saved {metrics_path}")
