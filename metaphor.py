@@ -49,7 +49,7 @@ def load_vuamc(url):
         Takes a bs4 sentence tag and returns the lematized sentence and whether it was metaphorical
         """
         def is_metaphor(tag):
-            return tag.name == "seg" and tag.get("function") in ["mrw", "mFlag"]  # and tag.get("subtype") != "WIDLII"
+            return tag.name == "seg" and tag.get("function") in ["mrw", "mFlag"] and tag.get("subtype") != "WIDLII"
 
         lemmas = [w["lemma"].replace(" ", "_") for w in sentence.find_all("w")]
         # only look for words actually related to metaphor
