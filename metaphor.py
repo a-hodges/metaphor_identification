@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Metaphor identification script.
+Metaphor identification using tensorflow deep learning.
 """
 
 import math
@@ -37,10 +37,15 @@ parser.add_argument("-c", "--corpus", dest="corpus_filename", default="./data/VU
                     help='Location of the corpus to load. Default="./data/VUAMC.xml"')
 parser.add_argument("-l", "--language", dest="lang", default="en",
                     help='Language of the corpus. Should be a language code supported by ConceptNet5. Default="en"')
-args = parser.parse_args()
 
-for name, value in vars(args).items():
-    print(f"{name}: {value}")
+# Preprocessing functions
+
+
+def load_numberbatch(filename):
+    print("Loading vectors...")
+    vectors = query.VectorSpaceWrapper(vector_filename=filename)
+    vectors.load()
+    return vectors
 
 
 def load_vuamc(url):
@@ -58,6 +63,8 @@ def load_vuamc(url):
         # only look for words actually related to metaphor
         metaphorical = sentence.find(is_metaphor) is not None
         return lemmas, metaphorical
+
+    print("Loading corpus...")
 
     if url.startswith("http"):
         document = requests.get(url).text
@@ -90,25 +97,22 @@ def preprocess(corpus, vectors, lang="en"):
     return data, labels
 
 
-# load numberbatch vectors
-print("Loading vectors...")
-vectors = query.VectorSpaceWrapper(vector_filename=args.vector_filename)
-vectors.load()
+def preprocessing(corpus, vectors, lang="en"):
+    print("Preprocessing...")
 
-# Load metaphor corpus
-print("Loading corpus...")
-corpus = load_vuamc(args.corpus_filename)
+    # shuffle corpus for splitting
+    random.Random(10).shuffle(corpus)
+    t_split = len(corpus) * 6 // 10
+    v_split = len(corpus) * 8 // 10
 
-random.Random(10).shuffle(corpus)  # shuffle corpus for splitting
-t_split = len(corpus) * 6 // 10
-v_split = len(corpus) * 8 // 10
+    # vectorize sentences and convert boolean labels to floats
+    train = preprocess(corpus[:t_split], vectors, lang=lang)
+    val = preprocess(corpus[t_split:v_split], vectors, lang=lang)
+    test = preprocess(corpus[v_split:], vectors, lang=lang)
+    return train, val, test
 
-print("Preprocessing...")
-# vectorize sentences and convert boolean labels to floats
-train_data, train_labels = preprocess(corpus[:t_split], vectors, lang=args.lang)
-val_data, val_labels = preprocess(corpus[t_split:v_split], vectors, lang=args.lang)
-test_data, test_labels = preprocess(corpus[v_split:], vectors, lang=args.lang)
-test_labels_bool = test_labels.astype(dtype=bool)
+
+# model functions
 
 
 def MetaphorModel(l2s, dropout_rate):
@@ -126,79 +130,116 @@ def MetaphorModel(l2s, dropout_rate):
     return model
 
 
-model = MetaphorModel(l2s=args.l2, dropout_rate=args.dropout)
-model.summary()
+def run_model(model, patience, max_epochs, train, val=None):
+    train_data, train_labels = train
 
-callbacks = []
-# early stopping stops iteration when the model starts overfitting too much
-if args.patience >= 0:
-    callbacks.append(EarlyStopping(patience=args.patience, restore_best_weights=True))
+    callbacks = []
+    # early stopping stops iteration when the model starts overfitting too much
+    if patience >= 0:
+        callbacks.append(EarlyStopping(patience=patience, restore_best_weights=True))
 
-model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-history = model.fit(train_data, train_labels, steps_per_epoch=30, epochs=args.max_epochs,
-                    validation_data=(val_data, val_labels), callbacks=callbacks)
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    history = model.fit(train_data, train_labels, steps_per_epoch=30, epochs=max_epochs,
+                        validation_data=val, callbacks=callbacks)
+    return model, history
 
-# setup output directory
-outdir = Path(args.outdir)
-outdir.mkdir(parents=True, exist_ok=True)
 
-# export accuracy plot
-accuracy_path = outdir / "model_accuracy.png"
-for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
-    plt.plot(range(1, len(vals)+1), vals)
-plt.title("model accuracy")
-plt.xlim(1, args.max_epochs)
-plt.xlabel("epoch")
-plt.ylim(0.5, 1.0)
-plt.ylabel("accuracy")
-plt.legend(['training', 'validation'], loc='upper left')
-plt.savefig(accuracy_path)
-plt.close()
-print(f"Saved {accuracy_path}")
+# output functions
 
-# export loss plot
-loss_path = outdir / "model_loss.png"
-for vals in [history.history["loss"], history.history["val_loss"]]:
-    plt.plot(range(1, len(vals)+1), vals)
-plt.title("model loss")
-plt.xlim(1, args.max_epochs)
-plt.xlabel("epoch")
-plt.ylim(0.0, 1.0)
-plt.ylabel("loss")
-plt.legend(['training', 'validation'], loc='upper right')
-plt.savefig(loss_path)
-plt.close()
-print(f"Saved {loss_path}")
 
-# get predictions and metrics
-predictions = model.predict(test_data)
-predictions = predictions.reshape((len(predictions),))
-predictions_bool = [pred >= 0.5 for pred in predictions]
-test_metrics = {
-    "accuracy": metrics.accuracy_score(test_labels_bool, predictions_bool),
-    "precision": metrics.precision_score(test_labels_bool, predictions_bool),
-    "recall": metrics.recall_score(test_labels_bool, predictions_bool),
-    "f1": metrics.f1_score(test_labels_bool, predictions_bool),
-}
-eval_loss, eval_acc = model.evaluate(val_data, val_labels)
+def plot_accuracy(path, history, max_epochs=None):
+    for vals in [history.history["accuracy"], history.history["val_accuracy"]]:
+        plt.plot(range(1, len(vals)+1), vals)
+    plt.title("model accuracy")
+    plt.xlim(1, max_epochs)
+    plt.xlabel("epoch")
+    plt.ylim(0.5, 1.0)
+    plt.ylabel("accuracy")
+    plt.legend(['training', 'validation'], loc='upper left')
+    plt.savefig(path)
+    plt.close()
+    print(f"Saved {path}")
 
-# export test metrics and predictions
-metrics_path = outdir / "metrics_and_predictions.md"
-num_len = math.ceil(math.log10(len(predictions)))
-with open(metrics_path, "w", newline="\n") as f:
-    f.write(textwrap.dedent(f"""
-        # Test
-        Accuracy  = {test_metrics['accuracy']}
-        Precision = {test_metrics['precision']}
-        Recall    = {test_metrics['recall']}
-        F1        = {test_metrics['f1']}
-        # Eval
-        Loss      = {eval_loss}
-        Accuracy  = {eval_acc}
-        ![Model Loss](model_loss.png)
-        ![Model Accuracy](model_accuracy.png)
-        # Preictions
-        """).lstrip())
-    for i, (actual, pred) in enumerate(zip(test_labels_bool, predictions)):
-        f.write(f"{i:0{num_len}}: {str(actual):<5} vs {str(pred >= 0.5):<5} = {pred}\n")
-print(f"Saved {metrics_path}")
+
+def plot_loss(path, history, max_epochs=None):
+    for vals in [history.history["loss"], history.history["val_loss"]]:
+        plt.plot(range(1, len(vals)+1), vals)
+    plt.title("model loss")
+    plt.xlim(1, max_epochs)
+    plt.xlabel("epoch")
+    plt.ylim(0.0, 1.0)
+    plt.ylabel("loss")
+    plt.legend(['training', 'validation'], loc='upper right')
+    plt.savefig(path)
+    plt.close()
+    print(f"Saved {path}")
+
+
+def save_metrics(path, model, val, test=None):
+    if test is None:
+        test = val
+
+    test_data, test_labels = test
+    test_labels_bool = test_labels.astype(dtype=bool)
+
+    predictions = model.predict(test_data)
+    predictions = predictions.reshape((len(predictions),))
+    predictions_bool = [pred >= 0.5 for pred in predictions]
+
+    test_metrics = {
+        "accuracy": metrics.accuracy_score(test_labels_bool, predictions_bool),
+        "precision": metrics.precision_score(test_labels_bool, predictions_bool),
+        "recall": metrics.recall_score(test_labels_bool, predictions_bool),
+        "f1": metrics.f1_score(test_labels_bool, predictions_bool),
+    }
+
+    eval_loss, eval_acc = model.evaluate(*val)
+
+    # export test metrics and predictions
+    num_len = math.ceil(math.log10(len(predictions)))
+    with open(path, "w", newline="\n") as f:
+        f.write(textwrap.dedent(f"""
+            # Test
+            Accuracy  = {test_metrics['accuracy']}
+            Precision = {test_metrics['precision']}
+            Recall    = {test_metrics['recall']}
+            F1        = {test_metrics['f1']}
+            # Eval
+            Loss      = {eval_loss}
+            Accuracy  = {eval_acc}
+            ![Model Loss](model_loss.png)
+            ![Model Accuracy](model_accuracy.png)
+            # Preictions
+            """).lstrip())
+        for i, (actual, pred) in enumerate(zip(test_labels_bool, predictions)):
+            f.write(f"{i:0{num_len}}: {str(actual):<5} vs {str(pred >= 0.5):<5} = {pred}\n")
+    print(f"Saved {path}")
+
+
+# main
+
+
+def main():
+    args = parser.parse_args()
+    for name, value in vars(args).items():
+        print(f"{name}: {value}")
+
+    vectors = load_numberbatch(args.vector_filename)
+    corpus = load_vuamc(args.corpus_filename)
+    train, val, test = preprocessing(corpus, vectors, args.lang)
+
+    model = MetaphorModel(l2s=args.l2, dropout_rate=args.dropout)
+    model.summary()
+    model, history = run_model(model, patience=args.patience, max_epochs=args.max_epochs, train=train, val=val)
+
+    # setup output directory
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    plot_accuracy(outdir / "model_accuracy.png", history, args.max_epochs)
+    plot_loss(outdir / "model_loss.png", history, args.max_epochs)
+    save_metrics(outdir / "metrics_and_predictions.md", model, val, test)
+
+
+if __name__ == "__main__":
+    main()
