@@ -72,6 +72,7 @@ def load_vuamc(url):
         def is_metaphor(tag):
             return tag.name == "seg" and tag.get("function") in ["mrw", "mFlag"] and tag.get("subtype") != "WIDLII"
 
+        # Normally I would use nltk to lemmatize words, but the corpus already has the lemmas so I can skip that step
         lemmas = [w["lemma"].replace(" ", "_") for w in sentence.find_all("w")]
         # only look for words actually related to metaphor
         metaphorical = sentence.find(is_metaphor) is not None
