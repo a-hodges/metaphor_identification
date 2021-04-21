@@ -12,6 +12,8 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+import conceptnet5.uri
+import conceptnet5.vectors
 from conceptnet5.vectors import query
 import numpy as np
 from tensorflow import keras
@@ -106,8 +108,18 @@ def vectorize(vectors, lang, sentence):
 
     returns: a vector as a list of floats
     """
-    sentence = " ".join(sentence)
-    return vectors.text_to_vector(lang, sentence)
+    weighted_terms = [
+        (conceptnet5.uri.uri_prefix(conceptnet5.vectors.standardized_uri(lang, token)), 1.0)
+        for token in sentence
+    ]
+    total_weight = sum(abs(weight) for _, weight in weighted_terms)
+    weighted_terms = [(term, weight / total_weight) for (term, weight) in weighted_terms]
+    vec = conceptnet5.vectors.weighted_average(vectors.frame, weighted_terms)
+    vec = conceptnet5.vectors.normalize_vec(vec)
+    return vec
+
+    # return self.get_vector(weighted_terms, oov_vector=False)
+    # return vectors.text_to_vector(lang, sentence)
 
 
 def preprocess(corpus, vectors, lang="en"):
