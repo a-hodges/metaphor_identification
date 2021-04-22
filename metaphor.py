@@ -117,9 +117,6 @@ def vectorize(vectors, lang, sentence):
     vec = query.normalize_vec(vec)
     return vec
 
-    # return self.get_vector(weighted_terms, oov_vector=False)
-    # return vectors.text_to_vector(lang, sentence)
-
 
 def preprocess(corpus, vectors, lang="en"):
     """
