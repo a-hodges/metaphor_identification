@@ -169,9 +169,9 @@ def MetaphorModel(l2s, dropout_rate):
     """
     # regularizers and dropout layers help prevent overfitting
     input = layers.Input(shape=(None, 300))
-    rnn = layers.LSTM(300, activation="relu", recurrent_activation="sigmoid",
+    rnn = layers.LSTM(300, activation="tanh", recurrent_activation="sigmoid",
                       kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s), recurrent_regularizer=l2(l2s),
-                      dropout=dropout_rate, recurrent_dropout=dropout_rate)
+                      dropout=dropout_rate, recurrent_dropout=0)
     x = layers.Bidirectional(rnn)(input)
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
     x = layers.Dropout(dropout_rate)(x)
