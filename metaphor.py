@@ -12,10 +12,9 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
-import conceptnet5.uri
-import conceptnet5.vectors
 from conceptnet5.vectors import query
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.regularizers import l2
@@ -107,17 +106,13 @@ def vectorize(vectors, lang, sentence):
     lang: the language code for the corpus
     sentence: a list of strings
 
-    returns: a vector as a list of floats
+    returns: a vector as a list of lists of floats
     """
-    weighted_terms = [
-        (conceptnet5.uri.uri_prefix(conceptnet5.vectors.standardized_uri(lang, token)), 1.0)
-        for token in sentence
-    ]
-    total_weight = sum(abs(weight) for _, weight in weighted_terms)
-    weighted_terms = [(term, weight / total_weight) for (term, weight) in weighted_terms]
-    vec = conceptnet5.vectors.weighted_average(vectors.frame, weighted_terms)
-    vec = conceptnet5.vectors.normalize_vec(vec)
-    return vec
+    vector_lst = []
+    for token in sentence:
+        v = vectors.get_vector(query.uri_prefix(query.standardized_uri(lang, token)), oov_vector=False)
+        vector_lst.append(v)
+    return vector_lst
 
     # return self.get_vector(weighted_terms, oov_vector=False)
     # return vectors.text_to_vector(lang, sentence)
@@ -134,7 +129,7 @@ def preprocess(corpus, vectors, lang="en"):
     returns (data, labels)
     """
     data, labels = split_labels(corpus)
-    data = np.array([vectorize(vectors, lang, s) for s in data])
+    data = tf.ragged.constant([vectorize(vectors, lang, s) for s in data])
     labels = np.array(list(map(float, labels)))
     return data, labels
 
@@ -176,9 +171,11 @@ def MetaphorModel(l2s, dropout_rate):
     returns: the completed model
     """
     # regularizers and dropout layers help prevent overfitting
-    input = layers.Input(shape=(300,))
-    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(input)
-    x = layers.Dropout(dropout_rate)(x)
+    input = layers.Input(shape=(None, 300))
+    rnn = layers.LSTM(300, activation="relu", recurrent_activation="sigmoid",
+                      kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s), recurrent_regularizer=l2(l2s),
+                      dropout=dropout_rate, recurrent_dropout=dropout_rate)
+    x = layers.Bidirectional(rnn)(input)
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
     x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(60, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
