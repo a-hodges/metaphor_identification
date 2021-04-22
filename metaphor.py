@@ -114,9 +114,6 @@ def vectorize(vectors, lang, sentence):
         vector_lst.append(v)
     return vector_lst
 
-    # return self.get_vector(weighted_terms, oov_vector=False)
-    # return vectors.text_to_vector(lang, sentence)
-
 
 def preprocess(corpus, vectors, lang="en"):
     """
