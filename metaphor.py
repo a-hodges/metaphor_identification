@@ -171,8 +171,9 @@ def MetaphorModel(l2s, dropout_rate):
     input = layers.Input(shape=(None, 300))
     rnn = layers.LSTM(300, activation="tanh", recurrent_activation="sigmoid",
                       kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s), recurrent_regularizer=l2(l2s),
-                      dropout=dropout_rate, recurrent_dropout=0)
+                      recurrent_dropout=0)
     x = layers.Bidirectional(rnn)(input)
+    x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
     x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(60, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
