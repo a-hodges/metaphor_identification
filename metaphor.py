@@ -31,7 +31,8 @@ parser.add_argument("-d", "--droput", dest="dropout", type=float, default=0.5,
                     help="Dropout rate on intermediate dropout layers. 0.0 for no dropout. Default=0.5")
 parser.add_argument("-p", "--patience", dest="patience", type=int, default=3,
                     help="EarlyStopping patience parameter, -1 to disable early stopping. Default=3")
-parser.add_argument("-o", "--output", dest="outdir", default="./output", help="Output directory")
+parser.add_argument("-o", "--output", dest="outdir", default="./output/vuamc",
+                    help='Output directory. Default="./output/vuamc"')
 parser.add_argument("-v", "--vectors", dest="vector_filename", default=None,
                     help="Location of vector file. Default=conceptnet5 data locations")
 parser.add_argument("-c", "--corpus", dest="corpus_filename", default="./data/VUAMC.xml",
