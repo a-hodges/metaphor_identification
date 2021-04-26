@@ -1,6 +1,7 @@
 """
 Splits the VUAMC corpus into its respective genres
 Expects the full British National Corpus XML edition to be available at data/2554/download
+From: https://ota.bodleian.ox.ac.uk/repository/xmlui/handle/20.500.12024/2554
 """
 
 from pathlib import Path

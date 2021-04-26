@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 from conceptnet5.vectors import query
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.regularizers import l2
@@ -30,7 +31,8 @@ parser.add_argument("-d", "--droput", dest="dropout", type=float, default=0.5,
                     help="Dropout rate on intermediate dropout layers. 0.0 for no dropout. Default=0.5")
 parser.add_argument("-p", "--patience", dest="patience", type=int, default=3,
                     help="EarlyStopping patience parameter, -1 to disable early stopping. Default=3")
-parser.add_argument("-o", "--output", dest="outdir", default="./output", help="Output directory")
+parser.add_argument("-o", "--output", dest="outdir", default="./output/vuamc",
+                    help='Output directory. Default="./output/vuamc"')
 parser.add_argument("-v", "--vectors", dest="vector_filename", default=None,
                     help="Location of vector file. Default=conceptnet5 data locations")
 parser.add_argument("-c", "--corpus", dest="corpus_filename", default="./data/VUAMC.xml",
@@ -105,17 +107,13 @@ def vectorize(vectors, lang, sentence):
     lang: the language code for the corpus
     sentence: a list of strings
 
-    returns: a vector as a list of floats
+    returns: a vector as a list of lists of floats
     """
-    weighted_terms = [
-        (query.uri_prefix(query.standardized_uri(lang, token)), 1.0)
-        for token in sentence
-    ]
-    total_weight = sum(abs(weight) for _, weight in weighted_terms)
-    weighted_terms = [(term, weight / total_weight) for (term, weight) in weighted_terms]
-    vec = query.weighted_average(vectors.frame, weighted_terms)
-    vec = query.normalize_vec(vec)
-    return vec
+    vector_lst = []
+    for token in sentence:
+        v = vectors.get_vector(query.uri_prefix(query.standardized_uri(lang, token)), oov_vector=False)
+        vector_lst.append(v)
+    return vector_lst
 
 
 def preprocess(corpus, vectors, lang="en"):
@@ -129,7 +127,7 @@ def preprocess(corpus, vectors, lang="en"):
     returns (data, labels)
     """
     data, labels = split_labels(corpus)
-    data = np.array([vectorize(vectors, lang, s) for s in data])
+    data = tf.ragged.constant([vectorize(vectors, lang, s) for s in data])
     labels = np.array(list(map(float, labels)))
     return data, labels
 
@@ -171,8 +169,11 @@ def MetaphorModel(l2s, dropout_rate):
     returns: the completed model
     """
     # regularizers and dropout layers help prevent overfitting
-    input = layers.Input(shape=(300,))
-    x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(input)
+    input = layers.Input(shape=(None, 300))
+    rnn = layers.LSTM(300, activation="tanh", recurrent_activation="sigmoid",
+                      kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s), recurrent_regularizer=l2(l2s),
+                      recurrent_dropout=0)
+    x = layers.Bidirectional(rnn)(input)
     x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(300, activation="relu", kernel_regularizer=l2(l2s), bias_regularizer=l2(l2s))(x)
     x = layers.Dropout(dropout_rate)(x)
