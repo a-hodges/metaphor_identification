@@ -124,6 +124,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Vector files
+# Too large to commit
+data/vectors/
+
 # Output files
 output/
 
